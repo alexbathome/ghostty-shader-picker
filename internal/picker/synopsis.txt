@@ -1,0 +1,18 @@
+A simple picker for Ghostty custom shaders.
+
+In order to use this application, you must have the following in your Ghostty 
+config:
+
+    config-file = ?auto/shader.ghostty
+
+A collection of shaders are in-built from the https://github.com/0xhckr/ghostty-shaders
+repository. You can opt to not use these in-built shaders with the --include-inbuilt-shaders=false
+
+Flags:
+%s
+Examples:
+* Auto reload, and include shaders from directory A, and B, and inbuilt.
+    ghostty-shader-picker --shader-dir A --shader-dir B --apply 
+* Include shaders from directory C, and include shader files B and C.
+    ghostty-shader-picker --shader-dir C --shader-file B --shader-file C
+

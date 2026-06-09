@@ -1,11 +1,13 @@
 package picker
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 
 	"github.com/adrg/xdg"
+	"github.com/mitchellh/go-ps"
 )
 
 // PreferredConfigDir returns the directory where Ghostty's config file is
@@ -23,4 +25,19 @@ func PreferredConfigDir() (string, error) {
 	}
 	// everything else: use XDG_CONFIG_HOME
 	return filepath.Join(xdg.ConfigHome, "ghostty"), nil
+}
+
+// findGhosttyProcess recursively looks up the process tree starting from a
+// given pid to find a process with the name "ghostty".
+func findGhostty(pid int) (*os.Process, error) {
+	proc, err := ps.FindProcess(pid)
+	switch {
+	case err != nil:
+		return nil, err
+	case proc.Executable() == ghosttyProcName:
+		return os.FindProcess(proc.Pid())
+	case proc.PPid() == 0:
+		return nil, fmt.Errorf("not found")
+	}
+	return findGhostty(proc.PPid())
 }
