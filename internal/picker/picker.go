@@ -30,6 +30,12 @@ var (
 	version = "TODO(dev)"
 )
 
+type shader struct {
+	name    string
+	meta    string
+	builtin bool
+}
+
 func Main(_ context.Context) error {
 	var (
 		fs = NewCustomFlagSet(name, flag.ExitOnError)
@@ -52,11 +58,11 @@ func Main(_ context.Context) error {
 	if err != nil {
 		return fmt.Errorf("picking a shader: %w", err)
 	}
-	if pick == "" {
+	if pick == nil {
 		return nil
 	}
 
-	outputShaderPath, err := installShader(pick)
+	outputShaderPath, err := installShader(*pick)
 	if err != nil {
 		return fmt.Errorf("installing shader: %w", err)
 	}
@@ -75,8 +81,8 @@ func Main(_ context.Context) error {
 	return nil
 }
 
-func collectShaders(dirs, files []string, includeInbuiltShaders bool) ([]string, error) {
-	shaders := []string{}
+func collectShaders(dirs, files []string, includeInbuiltShaders bool) ([]ui.ShaderModel, error) {
+	shaders := []ui.ShaderModel{}
 
 	if includeInbuiltShaders {
 		inbuilt, err := inbuiltShaders.ReadDir("ghostty-shaders")
@@ -84,7 +90,7 @@ func collectShaders(dirs, files []string, includeInbuiltShaders bool) ([]string,
 			return nil, fmt.Errorf("reading inbuilt shaders: %w", err)
 		}
 		for _, file := range inbuilt {
-			shaders = append(shaders, file.Name())
+			shaders = append(shaders, ui.ShaderModel{Name: file.Name(), Meta: "(inbuilt)", Builtin: true})
 		}
 	}
 
@@ -95,13 +101,13 @@ func collectShaders(dirs, files []string, includeInbuiltShaders bool) ([]string,
 		}
 		for _, file := range files {
 			if !file.IsDir() {
-				shaders = append(shaders, file.Name())
+				shaders = append(shaders, ui.ShaderModel{Name: file.Name(), Meta: fmt.Sprintf("(from: %s)", dir), Builtin: false})
 			}
 		}
 	}
 
 	for _, file := range files {
-		shaders = append(shaders, file)
+		shaders = append(shaders, ui.ShaderModel{Name: file, Meta: "(specified)", Builtin: false})
 	}
 
 	return shaders, nil
@@ -118,7 +124,7 @@ func refreshGhostty() error {
 	return nil
 }
 
-func installShader(pick string, inbuilt bool) (string, error) {
+func installShader(pick ui.ShaderModel) (string, error) {
 	ucd, err := os.UserCacheDir()
 	if err != nil {
 		return "", fmt.Errorf("getting user cache dir: %w", err)
@@ -129,9 +135,9 @@ func installShader(pick string, inbuilt bool) (string, error) {
 		return "", fmt.Errorf("creating cache dir: %w", err)
 	}
 
-	pickPath := pick
-	if inbuilt {
-		pickPath = filepath.Join("ghostty-shaders", pick)
+	pickPath := pick.Name
+	if pick.Builtin {
+		pickPath = filepath.Join("ghostty-shaders", pick.Name)
 	}
 	pickedShaderFile, err := inbuiltShaders.Open(pickPath)
 	if err != nil {

@@ -32,7 +32,17 @@ func newStyles(darkBG bool) styles {
 	return s
 }
 
-type item string
+// ShaderModel is the model used to represent a shader in the UI.
+// It also _doubles_ for the structure that is passed through the main
+// picking flow. Which is a bit inelegent but it avoids having a seperate
+// package for this single type.
+type ShaderModel struct {
+	Name    string
+	Meta    string
+	Builtin bool
+}
+
+type item ShaderModel
 
 func (i item) FilterValue() string { return "" }
 
@@ -49,7 +59,10 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	str := fmt.Sprintf("%d. %s", index+1, i)
+	if i.Builtin {
+		i.Meta = "(inbuilt)"
+	}
+	str := fmt.Sprintf("%d. %s %s", index+1, i.Name, i.Meta)
 
 	fn := d.styles.item.Render
 	if index == m.Index() {
@@ -63,12 +76,12 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 type model struct {
 	list     list.Model
-	choice   *string
+	choice   *ShaderModel
 	styles   styles
 	quitting bool
 }
 
-func initialModel(shaders []string, choice *string) model {
+func initialModel(shaders []ShaderModel, choice *ShaderModel) model {
 	items := make([]list.Item, len(shaders))
 	for i, s := range shaders {
 		items[i] = item(s)
@@ -113,7 +126,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
-				*m.choice = string(i)
+				*m.choice = ShaderModel(i)
 			}
 			return m, tea.Quit
 		}
@@ -125,17 +138,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() tea.View {
-	if *m.choice != "" {
-		return tea.NewView(m.styles.quitText.Render(fmt.Sprintf("%s set.", *m.choice)))
+	if m.choice != nil {
+		return tea.NewView(m.styles.quitText.Render(fmt.Sprintf("%s set.", m.choice.Name)))
 	}
 	return tea.NewView("\n" + m.list.View())
 }
 
-func Pick(shaders []string) (string, error) {
-	var choice string
-	_, err := tea.NewProgram(initialModel(shaders, &choice)).Run()
+func Pick(shaders []ShaderModel) (*ShaderModel, error) {
+	var choice *ShaderModel = nil
+	_, err := tea.NewProgram(initialModel(shaders, choice)).Run()
 	if err != nil {
-		return "", fmt.Errorf("running ui: %w", err)
+		return nil, fmt.Errorf("running ui: %w", err)
 	}
 	return choice, nil
 }
