@@ -35,6 +35,8 @@ func NewCustomFlagSet(name string, errorHandling flag.ErrorHandling) *cfs {
 
 	fs.Usage = func() {
 		fs.PrintDefaults()
+		// PrintDefaults writes to the flagBuf, it has to be called before
+		// formatting the synopsis string.
 		synopsis = fmt.Sprintf(synopsis, flagBuf.String())
 		fmt.Fprintf(os.Stderr, "%s", synopsis)
 	}
