@@ -30,12 +30,7 @@ var (
 	version = "TODO(dev)"
 )
 
-type shader struct {
-	name    string
-	meta    string
-	builtin bool
-}
-
+// Main is the main entry point for the picker.
 func Main(_ context.Context) error {
 	var (
 		fs = NewCustomFlagSet(name, flag.ExitOnError)
@@ -59,6 +54,7 @@ func Main(_ context.Context) error {
 		return fmt.Errorf("picking a shader: %w", err)
 	}
 	if pick == nil {
+		// pick is empty when the user has used the 'q' quit.
 		return nil
 	}
 
@@ -67,8 +63,13 @@ func Main(_ context.Context) error {
 		return fmt.Errorf("installing shader: %w", err)
 	}
 
-	// Update config
-	if err := updateGhosttyAutoConfig(outputShaderPath); err != nil {
+	configPath, err := PreferredConfigDir()
+	if err != nil {
+		return fmt.Errorf("getting preferred config dir: %w", err)
+	}
+	configPath = filepath.Join(configPath, "auto", "shader.ghostty")
+
+	if err := updateGhosttyAutoConfig(configPath, outputShaderPath); err != nil {
 		return fmt.Errorf("updating ghostty auto config: %w", err)
 	}
 
@@ -81,6 +82,9 @@ func Main(_ context.Context) error {
 	return nil
 }
 
+// collectShaders collects shaders from the specified directories and files, as
+// well as the inbuilt shaders if includeInbuiltShaders is true. It returns a
+// list of ShaderModel representing the available shaders to pick from.
 func collectShaders(dirs, files []string, includeInbuiltShaders bool) ([]ui.ShaderModel, error) {
 	shaders := []ui.ShaderModel{}
 
@@ -135,43 +139,42 @@ func installShader(pick ui.ShaderModel) (string, error) {
 		return "", fmt.Errorf("creating cache dir: %w", err)
 	}
 
-	pickPath := pick.Name
+	var (
+		pickPath = pick.Name
+		src      io.ReadCloser
+		readErr  error
+	)
 	if pick.Builtin {
 		pickPath = filepath.Join("ghostty-shaders", pick.Name)
+		src, readErr = inbuiltShaders.Open(pickPath)
+	} else {
+		src, readErr = os.Open(pickPath)
 	}
-	pickedShaderFile, err := inbuiltShaders.Open(pickPath)
-	if err != nil {
-		return "", fmt.Errorf("opening shader file: %w", err)
+	if readErr != nil {
+		return "", fmt.Errorf("opening shader file: %w", readErr)
 	}
-	defer pickedShaderFile.Close()
+	defer src.Close()
 
-	outputShaderFile, err := os.Create(filepath.Join(cacheDir, "shader.glsl"))
+	dst := filepath.Join(cacheDir, "shader.glsl")
+	out, err := os.Create(dst)
 	if err != nil {
 		return "", fmt.Errorf("creating shader file: %w", err)
 	}
-	defer outputShaderFile.Close()
+	defer out.Close()
 
-	if _, err := io.Copy(outputShaderFile, pickedShaderFile); err != nil {
+	if _, err := io.Copy(out, src); err != nil {
 		return "", fmt.Errorf("writing shader file: %w", err)
 	}
-	return outputShaderFile.Name(), nil
+	return dst, nil
 }
 
-func updateGhosttyAutoConfig(shaderPath string) error {
-	preferredConfigDir, err := PreferredConfigDir()
+// Updates the {ghostty config path}/auto/shader.ghostty file with the provided
+// shader path.
+func updateGhosttyAutoConfig(configPath, shaderPath string) error {
+	template := fmt.Appendf([]byte{}, "custom-shader = %q", shaderPath)
+	err := os.WriteFile(configPath, template, 0644)
 	if err != nil {
-		return fmt.Errorf("getting preferred config dir: %w", err)
-	}
-	config := filepath.Join(preferredConfigDir, "auto", "shader.ghostty")
-	f, err := os.OpenFile(config, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		return fmt.Errorf("opening auto config file: %w", err)
-	}
-	defer f.Close()
-
-	_, err = fmt.Fprintf(f, configTemplate, shaderPath)
-	if err != nil {
-		return fmt.Errorf("writing auto config file: %w", err)
+		return fmt.Errorf("writing config file: %w", err)
 	}
 	return nil
 }
