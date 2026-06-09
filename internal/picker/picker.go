@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	//go:embed ghostty-shaders/*.glsl
+	//go:embed ghostty-shaders-dist/*.glsl
 	inbuiltShaders embed.FS
 	//go:embed synopsis.txt
 	synopsis string
@@ -92,7 +92,7 @@ func collectShaders(dirs, files []string, includeInbuiltShaders bool) ([]ui.Shad
 	shaders := []ui.ShaderModel{}
 
 	if includeInbuiltShaders {
-		inbuilt, err := inbuiltShaders.ReadDir("ghostty-shaders")
+		inbuilt, err := inbuiltShaders.ReadDir("ghostty-shaders-dist")
 		if err != nil {
 			return nil, fmt.Errorf("reading inbuilt shaders: %w", err)
 		}
@@ -148,7 +148,7 @@ func installShader(pick ui.ShaderModel) (string, error) {
 		readErr  error
 	)
 	if pick.Builtin {
-		pickPath = filepath.Join("ghostty-shaders", pick.Name)
+		pickPath = filepath.Join("ghostty-shaders-dist", pick.Name)
 		src, readErr = inbuiltShaders.Open(pickPath)
 	} else {
 		src, readErr = os.Open(pickPath)
