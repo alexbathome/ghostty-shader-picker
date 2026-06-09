@@ -7,7 +7,7 @@ https://github.com/user-attachments/assets/526ca396-9e1f-4d18-816a-e155add80076
 ## Installation 
 
 ```bash
-go install github.com/alexbathome/ghostty-shader-picker
+go install github.com/alexbathome/ghostty-shader-picker@v0.1.1
 ```
 
 ## Usage
