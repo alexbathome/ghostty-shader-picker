@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/alexbathome/ghostty-shader-picker/internal/ui"
@@ -24,10 +25,6 @@ var (
 	inbuiltShaders embed.FS
 	//go:embed synopsis.txt
 	synopsis string
-
-	// version is set at build time using
-	// -ldflags="-X github.com/alexbathome/ghostty-shader-picker/internal/picker.version=1.2.3"
-	version = "TODO(dev)"
 )
 
 // Main is the main entry point for the picker.
@@ -39,9 +36,15 @@ func Main(_ context.Context) error {
 		inputShaderFiles      = fs.StringSlice("shader-file", []string{}, "individual shader file to load instead of inbuilt ones (optional)")
 		includeInbuiltShaders = fs.Bool("include-inbuilt-shaders", true, "include inbuilt shaders in the list of shaders to pick from")
 		autoApplyConfig       = fs.Bool("apply", false, "automatically reload ghostty's config with the picked shader (optional) (requires execution inside Ghostty)")
+		version               = fs.Bool("version", false, "print the version of ghostty-shader-picker")
 	)
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return fmt.Errorf("parsing flags: %w", err)
+	}
+
+	if *version {
+		fmt.Println(getVersion())
+		return nil
 	}
 
 	shaders, err := collectShaders(*inputShaderDirs, *inputShaderFiles, *includeInbuiltShaders)
@@ -177,4 +180,13 @@ func updateGhosttyAutoConfig(configPath, shaderPath string) error {
 		return fmt.Errorf("writing config file: %w", err)
 	}
 	return nil
+}
+
+// getVersion returns the version of ghostty-shader-picker, or "unknown" if it
+// cannot be determined.
+func getVersion() string {
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "unknown"
 }
