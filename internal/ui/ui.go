@@ -81,7 +81,7 @@ type model struct {
 	quitting bool
 }
 
-func initialModel(shaders []ShaderModel, choice *ShaderModel) model {
+func initialModel(shaders []ShaderModel) model {
 	items := make([]list.Item, len(shaders))
 	for i, s := range shaders {
 		items[i] = item(s)
@@ -94,7 +94,7 @@ func initialModel(shaders []ShaderModel, choice *ShaderModel) model {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 
-	m := model{list: l, choice: choice}
+	m := model{list: l}
 	m.updateStyles(true) // default to dark styles.
 	return m
 }
@@ -126,7 +126,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
-				*m.choice = ShaderModel(i)
+				s := ShaderModel(i)
+				m.choice = &s
 			}
 			return m, tea.Quit
 		}
@@ -145,10 +146,9 @@ func (m model) View() tea.View {
 }
 
 func Pick(shaders []ShaderModel) (*ShaderModel, error) {
-	var choice *ShaderModel = nil
-	_, err := tea.NewProgram(initialModel(shaders, choice)).Run()
+	final, err := tea.NewProgram(initialModel(shaders)).Run()
 	if err != nil {
 		return nil, fmt.Errorf("running ui: %w", err)
 	}
-	return choice, nil
+	return final.(model).choice, nil
 }
