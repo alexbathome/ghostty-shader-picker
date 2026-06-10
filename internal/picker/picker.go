@@ -72,8 +72,14 @@ func Main(_ context.Context) error {
 	}
 	configPath = filepath.Join(configPath, "auto", "shader.ghostty")
 
-	if err := updateGhosttyAutoConfig(configPath, outputShaderPath); err != nil {
-		return fmt.Errorf("updating ghostty auto config: %w", err)
+	if noneShader(*pick) {
+		if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("removing ghostty auto config: %w", err)
+		}
+	} else {
+		if err := updateGhosttyAutoConfig(configPath, outputShaderPath); err != nil {
+			return fmt.Errorf("updating ghostty auto config: %w", err)
+		}
 	}
 
 	if *autoApplyConfig {
@@ -89,7 +95,9 @@ func Main(_ context.Context) error {
 // well as the inbuilt shaders if includeInbuiltShaders is true. It returns a
 // list of ShaderModel representing the available shaders to pick from.
 func collectShaders(dirs, files []string, includeInbuiltShaders bool) ([]ui.ShaderModel, error) {
-	shaders := []ui.ShaderModel{}
+	shaders := []ui.ShaderModel{
+		{Name: "None", Meta: "(no shader)", Builtin: true},
+	}
 
 	if includeInbuiltShaders {
 		inbuilt, err := inbuiltShaders.ReadDir("ghostty-shaders-dist")
@@ -132,6 +140,11 @@ func refreshGhostty() error {
 }
 
 func installShader(pick ui.ShaderModel) (string, error) {
+	// skip installation if the "None" shader is picked, which is a special case to
+	if noneShader(pick) {
+		return "", nil
+	}
+
 	ucd, err := os.UserCacheDir()
 	if err != nil {
 		return "", fmt.Errorf("getting user cache dir: %w", err)
@@ -189,4 +202,11 @@ func getVersion() string {
 		return info.Main.Version
 	}
 	return "unknown"
+}
+
+// noneShader is a helper function to check if a shader model represnets the
+// "None" shader, which is a special case to clear/remove custom shaders
+// from ghostty.
+func noneShader(shader ui.ShaderModel) bool {
+	return shader.Name == "None" && shader.Builtin
 }
